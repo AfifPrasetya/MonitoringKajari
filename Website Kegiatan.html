@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intel Mission Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace;
+        }
+
+        body {
+            background: #001100;
+            color: #00ff00;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 0, 0.05) 0px,
+                rgba(0, 255, 0, 0.05) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1;
+            animation: scan 4s linear infinite;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #00ff00;
+            margin-bottom: 20px;
+            background: #001a00;
+            box-shadow: 0 0 15px #00ff0033;
+        }
+
+        .input-section {
+            background: #002200;
+            padding: 20px;
+            border: 1px solid #00ff00;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            background: #001100;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            margin: 5px 0;
+        }
+
+        .mission-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #001100;
+            border: 1px solid #00ff00;
+        }
+
+        .mission-table th,
+        .mission-table td {
+            border: 1px solid #00ff00;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .mission-table th {
+            background: #002200;
+        }
+
+        .mission-table tr:nth-child(even) {
+            background: #001a00;
+        }
+
+        button {
+            background: #003300;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin: 2px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #00ff00;
+            color: #001100;
+        }
+
+        .completed {
+            opacity: 0.6;
+            position: relative;
+        }
+
+        .completed td:nth-child(3)::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 1px;
+            background: #00ff00;
+            transform: translateY(-50%);
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ OPERATION DAILY CONTROL</h1>
+            <p>STATUS: [OPERATIONAL]</p>
+        </div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" 
+                    id="taskInput" 
+                    placeholder="MISSION OBJECTIVE">
+            </div>
+            
+            <div class="input-group">
+                <input type="date" id="taskDate">
+                <input type="time" id="taskTime">
+            </div>
+
+            <div class="input-group">
+                <textarea 
+                    id="taskNotes" 
+                    rows="3" 
+                    placeholder="INTEL NOTES (OPTIONAL)"></textarea>
+            </div>
+            
+            <button onclick="addMission()">DEPLOY MISSION</button>
+        </div>
+
+        <table class="mission-table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">NO</th>
+                    <th style="width: 150px;">DATE/TIME</th>
+                    <th>MISSION OBJECTIVE</th>
+                    <th style="width: 250px;">INTEL NOTES</th>
+                    <th style="width: 150px;">CONTROLS</th>
+                </tr>
+            </thead>
+            <tbody id="missionList">
+                <!-- Data akan muncul di sini -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        let missions = JSON.parse(localStorage.getItem('missions')) || [];
+        
+        function updateDisplay() {
+            const tbody = document.getElementById('missionList');
+            tbody.innerHTML = missions.map((mission, index) => `
+                <tr class="${mission.completed ? 'completed' : ''}">
+                    <td>${index + 1}</td>
+                    <td>${mission.date}<br>${mission.time}</td>
+                    <td>${mission.objective}</td>
+                    <td>${mission.notes || 'NO DATA'}</td>
+                    <td>
+                        <button onclick="toggleStatus('${mission.id}')">
+                            ${mission.completed ? 'ACTIVATE' : 'COMPLETE'}
+                        </button>
+                        <button onclick="deleteMission('${mission.id}')">DELETE</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function addMission() {
+            const objective = document.getElementById('taskInput').value;
+            const date = document.getElementById('taskDate').value;
+            const time = document.getElementById('taskTime').value;
+            const notes = document.getElementById('taskNotes').value;
+
+            if (objective) {
+                missions.push({
+                    id: Date.now().toString(),
+                    objective: objective,
+                    date: date || new Date().toISOString().split('T')[0],
+                    time: time || new Date().toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                    }),
+                    notes: notes,
+                    completed: false,
+                    timestamp: new Date().getTime()
+                });
+                
+                clearInputs();
+                saveData();
+                updateDisplay();
+            }
+        }
+
+        function toggleStatus(id) {
+            missions = missions.map(mission => 
+                mission.id === id 
+                    ? {...mission, completed: !mission.completed} 
+                    : mission
+            );
+            saveData();
+            updateDisplay();
+        }
+
+        function deleteMission(id) {
+            missions = missions.filter(mission => mission.id !== id);
+            saveData();
+            updateDisplay();
+        }
+
+        function clearInputs() {
+            document.getElementById('taskInput').value = '';
+            document.getElementById('taskDate').value = '';
+            document.getElementById('taskTime').value = '';
+            document.getElementById('taskNotes').value = '';
+        }
+
+        function saveData() {
+            localStorage.setItem('missions', JSON.stringify(missions));
+        }
+
+        // Initial load
+        updateDisplay();
+    </script>
+</body>
+</html>
